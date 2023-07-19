@@ -646,58 +646,7 @@ int main()
 	DelimitedFileConverter dfc;
 	Array<string> malformedRows;
 
-	
-	fileName= "C:\\Users\\admin_piotrowski\\source\\repos\\DelimitedFileConverter\\TestingFiles\\Example1.csv";
-	dfc = DelimitedFileConverter(fileName, ",", "\"", true, true);
-	dfc.ProcessFile();
-	malformedRows = dfc.GetMalformedRows();
-	cout << "[MALFORMED ROWS] : ######################################" << endl;
-	for (unsigned int i = 0; i < malformedRows.GetSize(); i++) {
-		cout << "[ROW]{ " + malformedRows[i] + "}[ROW]" << endl;
-	}
-	cout << "#########################################################" << endl << endl;
-	
-	fileName = "C:\\Users\\admin_piotrowski\\source\\repos\\DelimitedFileConverter\\TestingFiles\\Example2.csv";
-	dfc = DelimitedFileConverter(fileName, ",", "\"", true, true);
-	dfc.ProcessFile();
-	malformedRows = dfc.GetMalformedRows();
-	cout << "[MALFORMED ROWS] : ######################################" << endl;
-	for (unsigned int i = 0; i < malformedRows.GetSize(); i++) {
-		cout << "[ROW]{ " + malformedRows[i] + "}[ROW]" << endl;
-	}
-	cout << "#########################################################" << endl << endl;
-
-	fileName = "C:\\Users\\admin_piotrowski\\source\\repos\\DelimitedFileConverter\\TestingFiles\\Example3.csv";
-	dfc = DelimitedFileConverter(fileName, ",", "\"", true, true);
-	dfc.ProcessFile();
-	malformedRows = dfc.GetMalformedRows();
-	cout << "[MALFORMED ROWS] : ######################################" << endl;
-	for (unsigned int i = 0; i < malformedRows.GetSize(); i++) {
-		cout << "[ROW]{ " + malformedRows[i] + "}[ROW]" << endl;
-	}
-	cout << "#########################################################" << endl << endl;
-
-	fileName = "C:\\Users\\admin_piotrowski\\source\\repos\\DelimitedFileConverter\\TestingFiles\\Example4.csv";
-	dfc = DelimitedFileConverter(fileName, ",", "\"", true, true);
-	dfc.ProcessFile();
-	malformedRows = dfc.GetMalformedRows();
-	cout << "[MALFORMED ROWS] : ######################################" << endl;
-	for (unsigned int i = 0; i < malformedRows.GetSize(); i++) {
-		cout << "[ROW]{ " + malformedRows[i] + "}[ROW]" << endl;
-	}
-	cout << "#########################################################" << endl << endl;
-
-	fileName = "C:\\Users\\admin_piotrowski\\source\\repos\\DelimitedFileConverter\\TestingFiles\\Example5.csv";
-	dfc = DelimitedFileConverter(fileName, ",", "\"", true, true);
-	dfc.ProcessFile();
-	malformedRows = dfc.GetMalformedRows();
-	cout << "[MALFORMED ROWS] : ######################################" << endl;
-	for (unsigned int i = 0; i < malformedRows.GetSize(); i++) {
-		cout << "[ROW]{ " + malformedRows[i] + "}[ROW]" << endl;
-	}
-	cout << "#########################################################" << endl << endl;
-
-	fileName = "C:\\Users\\admin_piotrowski\\source\\repos\\DelimitedFileConverter\\TestingFiles\\Example6.csv";
+	fileName = "Example6.csv";
 	dfc = DelimitedFileConverter(fileName, ",", "\"", true, true);
 	dfc.ProcessFile();
 	malformedRows = dfc.GetMalformedRows();
