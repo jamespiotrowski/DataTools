@@ -416,6 +416,239 @@ public:
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
 	****************************************************************/
 	Array<FileLine> GetMalformedRows() { return malformedRows; }
+
+	/****************************************************************
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+	****************************************************************/
+	void GetTableStructureAsScript(const SqlType& sqlType, const string& fileName, const string& tableName, const bool& unicode) { 
+		string newTableName = tableName; // StringUtility::StringReplace(StringUtility::StringReplace(tableName, "[", ""), "]", "");
+		if (columns.GetSize() > 0) {
+			string s = "";
+			if (sqlType == TRANSACT_SQL) {
+				s = "CREATE TABLE " + newTableName + " (\n";
+				/* First Column */
+				s += "\t[" + columns[0].GetColumnName() + "] "; /* Name */
+				s += columns[0].GetSqlTypeAsString(sqlType, unicode) + "\n"; /* SQL Type */
+				/* Remainder of columns */
+				for (int i = 1; i < columns.GetSize(); i++) {
+					s += "\t,[" + columns[i].GetColumnName() + "] "; /* Name */
+					s += columns[i].GetSqlTypeAsString(sqlType, unicode) + "\n"; /* SQL Type */
+				}
+				s += ");";
+			}
+			ofstream outFile;
+			outFile.open(fileName);
+			if (outFile.is_open()) {
+				outFile << s;
+				outFile.close();
+			}
+			else {
+				PrintMessage("DelimitedFileConverter::GetTableStructureAsScript", ERROR, "Failed to open script file. File name provided may be invalid.");
+			}
+		}
+		else {
+			PrintMessage("DelimitedFileConverter::GetTableStructureAsScript", ERROR, "There are no columns. Cannot generate SQL Script.");
+		}
+	}
+
+	/****************************************************************
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+	****************************************************************/
+	string NullIf(const string& s, const string& n) {
+		if (s == n) {
+			return "NULL";
+		}
+		return s;
+	}
+
+	/****************************************************************
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+	****************************************************************/
+	string GetSqlValueString(const SqlType& sqlType, const FileLine& fileLine) {
+		Array<string> values = StringUtility::SplitString(fileLine.line, delimiter, qualifier);
+		if (values.GetSize() != columns.GetSize()) {
+			PrintMessage("DelimitedFileConverter::GetSqlValueString", ERROR, "Number of values in string does not equal number of columns.");
+			return string();
+		}
+
+		if (sqlType == TRANSACT_SQL) {
+			string s = "(";
+			for (int i = 0; i < columns.GetSize(); i++) {
+
+				// If string, need quotes
+				if (columns[i].IsStringType()) { 
+					// Need to qualify quotes with replace ( ' --> '' )
+					s += NullIf("'" + NullIf(StringUtility::StringReplace(values[i], "'", "''"), "") + "'", "'NULL'");
+				}
+				// If bool, need to convert to BIT 
+				else if (columns[i].IsBoolean()) {
+					s += NullIf(ConvertBooleanValueToString(values[i]), "");
+				}
+				// Should be fine from here
+				else {
+					s += NullIf(values[i], "");
+				}
+
+				if (i != (columns.GetSize() - 1)) {
+					s += ",";
+				}
+			}
+			s += ")";
+			return s;
+		}
+
+		PrintMessage("DelimitedFileConverter::GetSqlValueString", ERROR, "Requested SQL Type is currently not implemented.");
+		return string();
+	}
+	/****************************************************************
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+
+	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+	****************************************************************/
+	void GetDataAsSqlScript(const SqlType& sqlType, const string& outFileName, const string& tableName) {
+		string newTableName = tableName; // StringUtility::StringReplace(StringUtility::StringReplace(tableName, "[", ""), "]", "");
+		if (columns.GetSize() == 0) {
+			PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", ERROR, "There are no columns. Cannot generate SQL Script.");
+			return;
+		}
+
+		inFile.open(fileName);
+		if (!inFile.is_open()) {
+			PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", ERROR, "Failed to open the data file.");
+			return;
+		}
+
+		ofstream outFile;
+		outFile.open(outFileName);
+		if (!outFile.is_open()) {
+			PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", ERROR, "Failed to open the output file.");
+			inFile.close();
+			return;
+		}
+		
+		std::chrono::duration<double> elapsed_seconds;
+		auto start = std::chrono::system_clock::now();
+		if (inFile.is_open()) {
+			Array<FileLine> batch;
+			string s1;
+			FileLine fl;
+			unsigned int lineCount = (headerIncluded) ? 0 : 1;
+			unsigned int totalLineCount = lineCount;
+
+			if (!GetFileLine(s1)) {
+				inFile.close();	// If failed, close file
+			}
+
+			/* If headers are not included */
+			if (!headerIncluded) {
+				fl.line = s1;
+				fl.lineNumber = totalLineCount + ((headerIncluded) ? 1 : 0);
+				batch.Add(fl);	// This row contains data. Add this to the batch to be processed below
+			}
+			
+			/* Verify that batch either has data AND/OR file is still open*/
+			if (batch.GetSize() == 0 && !inFile.is_open()) {
+				PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", ERROR, "Could not read from file. Will not process further.");
+				return;
+			}
+
+			const int batchLimiter = 500;
+			int currentBatchCount = 0;
+
+			string columnList = "(";
+			for (int i = 0; i < columns.GetSize(); i++) {
+				columnList += "[" + columns[i].GetColumnName() + "]";
+				if (i != (columns.GetSize() - 1)) {
+					columnList += ",";
+				}
+			}
+			columnList += ")";
+
+			/* We have something to process */
+			unsigned int delimiterCount = 0;
+			while (true) {
+				/* Load Batch */
+				while (lineCount < batchSize && inFile.is_open()) {
+					if (!GetFileLine(s1)) {
+						inFile.close();
+						break;
+					}
+
+					lineCount += 1;
+					totalLineCount += 1;
+
+					fl.line = s1;
+					fl.lineNumber = totalLineCount + ((headerIncluded) ? 1 : 0);
+
+					/* Check the number of delimiters on the line */
+					delimiterCount = StringUtility::CountSubStringInString(s1, delimiter, qualifier);
+					/* If less, than there is perhaps an endline within a qualifed row */
+					if (delimiterCount < (expectedColumns - 1)) {
+						/* Row has an unfinished qualifier */
+						if (StringUtility::StringEndsWithinQualifiedField(s1, qualifier)) {
+							//PrintMessage("DelimitedFileConverter::ProcessFile", WARNING, "Found field contains qualified endlines.");
+							CompleteRowWithEndlines(fl, delimiterCount, totalLineCount); // Call function to deal with this
+							delimiterCount = StringUtility::CountSubStringInString(fl.line, delimiter, qualifier);	// With resulting string check again
+						}
+					}
+					/* If our delimiter count is greater, add to malformed. */
+					if (delimiterCount != (expectedColumns - 1)) {
+						PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", WARNING, "Malformed row occured while generating insert script. Skipping. Line Number: " + to_string(fl.lineNumber));
+						continue;
+					}
+
+					batch.Add(fl);
+				}
+
+				/* Interpret Rows */
+				if (batch.GetSize() > 0) {
+					string insertLine;
+					for (int i = 0; i < batch.GetSize(); i++) {
+						if (currentBatchCount == 0) {
+							insertLine = "\nINSERT INTO " + newTableName + " VALUES\n\t";
+						}
+						else {
+							insertLine = "\t,";
+						}
+						insertLine += GetSqlValueString(sqlType, batch[i]);
+						currentBatchCount += 1;
+						if (currentBatchCount >= batchLimiter) {
+							insertLine += ";";
+							currentBatchCount = 0;
+						}
+						insertLine += "\n";
+						outFile << insertLine;
+					}
+				}
+
+				/* Check for continuation */
+				if (!inFile.is_open()) {
+					PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", MESSAGE, "Reached end of file.");
+					break;
+				}
+
+				/* Reset for next batch */
+				lineCount = 0;
+				batch.reset();
+				cout << totalLineCount << endl;
+			}
+
+			outFile.close();
+		}
+		else {
+			PrintMessage("DelimitedFileConverter::GetDataAsSqlScript", ERROR, "File was unable to be opened. Cannot process file.");
+		}
+		auto end = std::chrono::system_clock::now();
+		elapsed_seconds = end - start;
+		std::cout << "elapsed time: " << (int)elapsed_seconds.count() << "s" << std::endl;
+	}
+
 };
 
 /**********************************************************************************************
@@ -425,12 +658,14 @@ public:
 **********************************************************************************************/
 int main()
 {
-	string fileName;
+	string fileName, tableFile, dataFile;
 	DelimitedFileConverter dfc;
 	Array<DelimitedFileConverter::FileLine> malformedRows;
 
-	fileName = "DateExample.txt";
-	dfc = DelimitedFileConverter(fileName, "\t", "", true, true);
+	fileName = "";
+	tableFile = "";
+	dataFile = "";
+	dfc = DelimitedFileConverter(fileName, "|", "", true, true);
 	dfc.PrintOptions();
 	dfc.ProcessFile();
 	malformedRows = dfc.GetMalformedRows();
@@ -439,7 +674,8 @@ int main()
 		malformedRows[i].PrintFileLine();
 	}
 	cout << "#########################################################" << endl << endl;
-
+	dfc.GetTableStructureAsScript(TRANSACT_SQL, tableFile, "[Scratch].[dbo].[DfcTable]", false);
+	dfc.GetDataAsSqlScript(TRANSACT_SQL, dataFile, "[Scratch].[dbo].[DfcTable]");
 
 	return 0;
 }

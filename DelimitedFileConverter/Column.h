@@ -24,6 +24,20 @@ using namespace std;
 ###############################################################################################
 **********************************************************************************************/
 
+
+enum SqlType {
+	TRANSACT_SQL
+	, MY_SQL
+};
+
+string ConvertBooleanValueToString(string s) {
+	s = StringUtility::ToLowerCaseString(s);
+	if (s == "1" || s == "true") { return "1"; }
+	if (s == "0" || s == "false") { return "0"; }
+	PrintMessage("ConvertBooleanValueToString", ERROR, "Tried to represent a non-boolean value as boolean. Value: " + s);
+	return string();
+}
+
 class Column {
 public:
 
@@ -32,6 +46,19 @@ public:
 		// , CAMEL_CASE
 		// , UPPER_CASE
 		// , LOWER_CASE
+	};
+
+	enum ColumnType {
+		STRING
+		, DECIMAL	// X
+		, INTEGER	// X
+		, CHARACTER // X
+		, TEXT
+		, DATE		// X
+		, DATETIME  // X
+		, BIT		// X
+		, BOOLEAN	// X
+		, UNDETERMINED
 	};
 
 private:
@@ -65,20 +92,6 @@ private:
 	}
 
 	static const string defaultColumnName;
-
-	enum ColumnType {
-		STRING
-		, DECIMAL	// X
-		, INTEGER	// X
-		, CHARACTER // X
-		, TEXT
-		, DATE		// X
-		, DATETIME  // X
-		, BIT		// X
-		, BOOLEAN	// X
-		, UNDETERMINED
-	};
-
 
 	/* Main column descriptors */
 	string columnName;
@@ -200,17 +213,17 @@ public:
 
 	Column(const string& columnName, const bool& formatColumnName, ColumnNameFormat columnNameFormat) {
 		if (formatColumnName) {
-			this->columnName = FormatColumnName(StringUtility::TrimWhiteSpace(columnName), columnNameFormat);
+			this->columnName = StringUtility::StringReplace(StringUtility::StringReplace(FormatColumnName(StringUtility::TrimWhiteSpace(columnName), columnNameFormat), "]", ""), "[", "");
 		}
 		else {
-			this->columnName = columnName;
+			this->columnName = StringUtility::StringReplace(StringUtility::StringReplace(columnName, "]", ""), "[", "");
 		}
 	}
 
 	void DetermineDataType(const string& s) {
 		instancesCounted += 1;
 
-		bool dateSucceeded = false;
+		bool previousSuccess = false;
 
 		if (IsBlank(s)) {
 			nullable = true;
@@ -229,14 +242,13 @@ public:
 				}
 			}
 
-			if (ChangeColumnType(BIT) && columnType != BIT && IsBit(s)) {
+			if (ChangeColumnType(BIT) && IsBit(s)) {
 				columnType = BIT;
+				previousSuccess = true;
 			}
-			else if (ChangeColumnType(INTEGER) && columnType != INTEGER && IsInt(s)) {
-				columnType = INTEGER;
-			}
-			else if (ChangeColumnType(DECIMAL) && IsDecimal(s)) {
+			else if (ChangeColumnType(DECIMAL) && IsDecimal(s) && (!IsInt(s) || columnType == DECIMAL)) {
 				columnType = DECIMAL;
+				previousSuccess = true;
 				unsigned int totalLen;
 				unsigned int decimalLen;
 				if (StringUtility::StringContains(s, ".")) {
@@ -257,27 +269,33 @@ public:
 					precision = decimalLen;
 				}
 			}
-			else if (ChangeColumnType(BOOLEAN) && columnType != BOOLEAN && IsBoolean(s)) {
+			else if (ChangeColumnType(INTEGER) && IsInt(s)) {
+				columnType = INTEGER;
+				previousSuccess = true;
+			}
+			else if (ChangeColumnType(BOOLEAN) && IsBoolean(s)) {
 				columnType = BOOLEAN;
+				previousSuccess = true;
 			}
 			else if (ChangeColumnType(DATE) || ChangeColumnType(DATETIME)) {
 				dateFormatProcessor.ProcessDate(s);
 				if (dateFormatProcessor.IsPossibleDateTime()) {
 					columnType = DATETIME;
-					dateSucceeded = true;
+					previousSuccess = true;
 				}
 				else if (dateFormatProcessor.IsPossibleDate()) {
 					columnType = DATE;
-					dateSucceeded = true;
+					previousSuccess = true;
 				}
 			}
-			if (!dateSucceeded && ChangeColumnType(CHARACTER) && IsCharacter(s)) {
+
+			if (!previousSuccess && ChangeColumnType(CHARACTER) && IsCharacter(s)) {
 				columnType = CHARACTER;
 			}
-			else if (!dateSucceeded && ChangeColumnType(TEXT) && IsText(s)) {
+			else if (!previousSuccess && ChangeColumnType(TEXT) && IsText(s)) {
 				columnType = TEXT;
 			}
-			else if(!dateSucceeded){
+			else if(!previousSuccess){
 				columnType = STRING;
 			}
 		}
@@ -308,6 +326,60 @@ public:
 		s += (nullable) ? " NULL" : " NOT NULL";
 		s += " ]";
 		return s;
+	}
+
+	string GetColumnName() const { return columnName; }
+
+	string GetSqlTypeAsString(SqlType sqlType, bool unicode) const {
+		string s;
+		bool constantLength = (instancesCounted == (nullsCounted + columnLengthFrequency));
+		if (sqlType == TRANSACT_SQL) {
+			switch (columnType) {
+			case(STRING): {
+				if (constantLength) {
+					s = (unicode ? "[NCHAR](" : "[CHAR](") + to_string(columnLength) + ")";
+				}
+				else {
+					s = (unicode ? "[NVARCHAR](" : "[VARCHAR](") + to_string(columnLength) + ")";
+				}
+				break;
+			}
+			case(DECIMAL): {
+				s = "[DECIMAL](" + to_string(columnLength) + "," + to_string(precision) + ")";
+				break;
+			}
+			case(CHARACTER): { s = (unicode ? "[NCHAR](1)" : "[CHAR](1)"); break; }
+			case(TEXT): { s = "[TEXT]"; break; }
+			case(DATE): { s = "[DATE]"; break; }
+			case(DATETIME): { 
+				if (columnLength < 20) { s = "[SMALLDATETIME]"; }
+				else if (columnLength < 24) { s = "[DATETIME]"; }
+				else { s = "[DATETIME2]"; }
+				break; 
+			}
+			case(BIT): { s = "[BIT]"; break; }
+			case(BOOLEAN): { s = "[BIT]"; break; }
+			case(INTEGER): { 
+				if (columnLength < 3) { s = "[TINYINT]"; }
+				else if (columnLength < 5) { s = "[SMALLINT]"; }
+				else if (columnLength < 10) { s = "[INT]"; }
+				else { s = "[BIGINT]"; }
+				break; 
+			}
+			case(UNDETERMINED): { s = "[???]"; break; }
+			}
+
+			s += (nullable) ? " NULL" : " NOT NULL";
+		}
+		return s;
+	}
+
+	bool IsStringType() const {
+		return (columnType == STRING || columnType == CHARACTER || columnType == TEXT || columnType == DATE || columnType == DATETIME);
+	}
+
+	bool IsBoolean() const {
+		return (columnType == BOOLEAN);
 	}
 
 };
