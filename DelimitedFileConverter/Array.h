@@ -11,10 +11,10 @@ template <class T> class Array {
 private:
 
 	/* Array Members */
-	unsigned int arraySize = 0;
-	unsigned int maxSize = 0;
+	size_t arraySize = 0;
+	size_t maxSize = 0;
 	T *arr = nullptr;
-	unsigned int growthFactor = 100;
+	size_t growthFactor = 100;
 
 	/****************************************************************
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
@@ -24,8 +24,10 @@ private:
 	void resize() {
 		maxSize += growthFactor;
 		T *newArr = new T[maxSize];
-		for (unsigned int i = 0; i < arraySize; i++) {
-			newArr[i] = arr[i];
+		if (arraySize <= maxSize && arraySize > 0) {
+			for (size_t i = 0; i < arraySize; i++) {
+				newArr[i] = arr[i];
+			}
 		}
 		delete[] arr;
 		arr = newArr;
@@ -53,7 +55,7 @@ public:
 
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
 	****************************************************************/
-	Array() : arraySize(0), maxSize(0), arr(nullptr), growthFactor(1) { }
+	Array() : arraySize(0), maxSize(0), arr(nullptr), growthFactor(100) { }
 
 	/****************************************************************
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
@@ -69,13 +71,15 @@ public:
 	****************************************************************/
 	void operator=(const Array& copy) {
 		clear();
+		arr = new T[copy.maxSize];
+		if (copy.arraySize <= copy.maxSize && copy.arraySize > 0) {
+			for (size_t i = 0; i < copy.arraySize; i++) {
+				arr[i] = copy.arr[i];
+			}
+		}
 		arraySize = copy.arraySize;
 		maxSize = copy.maxSize;
-		arr = new T[maxSize];
-		growthFactor = 100;
-		for (unsigned int i = 0; i < arraySize; i++) {
-			arr[i] = copy.arr[i];
-		}
+		growthFactor = copy.growthFactor;
 	}
 
 	/****************************************************************
@@ -105,7 +109,11 @@ public:
 
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
 	****************************************************************/
-	T& operator[](unsigned int i) {
+	T& operator[](size_t i) {
+		return arr[i];
+	}
+
+	T At(size_t i) const {
 		return arr[i];
 	}
 
@@ -114,7 +122,7 @@ public:
 
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
 	****************************************************************/
-	unsigned int GetSize() const { return arraySize; }
+	size_t GetSize() const { return arraySize; }
 
 	/****************************************************************
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
@@ -129,7 +137,7 @@ public:
 	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
 	****************************************************************/
 	bool exists(T item) { 
-		for (unsigned int i = 0; i < arraySize; i++) {
+		for (size_t i = 0; i < arraySize; i++) {
 			if (item == arr[i]) {
 				return true;
 			}

@@ -1,19 +1,24 @@
 #pragma once
 
 #ifndef H_STRING
+#define H_STRING
 #include <string>
+#include <cstring>
 #endif // !H_STRING
 
 #ifndef H_ARR
+#define H_ARR
 #include "Array.h"
 #endif // !H_ARR
 
 #ifndef H_CTM
+#define H_CTM
 #include <ctime>
 #include <chrono>
 #endif // !H_CTM
 
 #ifndef H_STRU
+#define H_STRU
 #include "StringUtility.h"
 #endif // !H_CLM
 
@@ -32,7 +37,7 @@ Maximun possible acceptable string YYYY/mm/DD HH:MM:SS.XX....XX pm
 
 */
 
-enum DateFormat {
+enum class DateFormat {
 	YYYYMMDD
 	, YYYYDDMM
 	, MMYYYYDD
@@ -77,16 +82,16 @@ private:
 	/*                             */
 	/*******************************/
 	Array<DateFormat> possibleDateFormats;
-	DateFormat dateFormat = UNSURE;
+	DateFormat dateFormat = DateFormat::UNSURE;
 	bool hasTime = false;
-	string delimiter = "";
+	wstring delimiter;
 
 	/*******************************/
 	/*                             */
 	/*******************************/
-	static bool IsPositiveInt(const string &s) {
+	static bool IsPositiveInt(const wstring &s) {
 		if (s.size() == 0) { return false; }
-		for (int i = 0; i < s.size(); i++) {
+		for (size_t i = 0; i < s.size(); i++) {
 			if (!StringUtility::IsDigit(s[i])) {
 				return false;
 			}
@@ -97,12 +102,12 @@ private:
 	/*******************************/
 	/*                             */
 	/*******************************/
-	static bool IsPositiveDecimal(const string &s) {
+	static bool IsPositiveDecimal(const wstring &s) {
 		if (s.size() == 0) { return false; }
 		bool foundDecimal = false;
-		for (int i = 0; i < s.size(); i++) {
+		for (size_t i = 0; i < s.size(); i++) {
 			if (!StringUtility::IsDigit(s[i])) {
-				if (s[i] == '.' && !foundDecimal) {
+				if (s[i] == L'.' && !foundDecimal) {
 					foundDecimal = true;
 				}
 				else {
@@ -156,21 +161,21 @@ private:
 	/*******************************/
 	/*                             */
 	/*******************************/
-	static bool IsTime(string t) {
+	static bool IsTime(wstring t) {
 		// HH:MM:SS.dddd...ddd PM/AM
 		// HH:MM:SS.dddd...ddd
-		int numSpaces = StringUtility::CountSubStringInString(t, " ", "");
+		size_t numSpaces = StringUtility::CountSubStringInString(t, L" ", L"");
 		bool am_pm_included = false;
 		bool pm = false;
-		string timeString;
+		wstring timeString;
 		if (numSpaces == 1) {
-			Array<string> tp = StringUtility::SplitString(t, " ", "");
-			string amPm = StringUtility::ToLowerCaseString(tp[1]);
-			if (amPm == "pm") {
+			Array<wstring> tp = StringUtility::SplitString(t, L" ", L"");
+			wstring amPm = StringUtility::ToLowerCaseString(tp[1]);
+			if (amPm == L"pm") {
 				am_pm_included = true;
 				pm = true;
 			}
-			else if (amPm == "am") {
+			else if (amPm == L"am") {
 				am_pm_included = true;
 			}
 			else {
@@ -185,7 +190,7 @@ private:
 			timeString = t;
 		}
 
-		Array<string> timeParts = StringUtility::SplitString(timeString, ":", "");
+		Array<wstring> timeParts = StringUtility::SplitString(timeString, L":", L"");
 		if (timeParts.GetSize() != 3) {
 			return false;
 		}
@@ -208,7 +213,7 @@ private:
 	/*******************************/
 	/*                             */
 	/*******************************/
-	static Array<DateFormat> GetPossibleDateFormats(string d, string& delimiter) {
+	static Array<DateFormat> GetPossibleDateFormats(wstring d, wstring& delimiter) {
 		Array<DateFormat> df;
 		// Count number of delimiters
 		bool identifiedDelimiter = false;
@@ -222,11 +227,11 @@ private:
 			else {							// Else, not a digit
 				if (!identifiedDelimiter) {		// If we have not found a delimiter yet
 					identifiedDelimiter = true;		// Indicate that we have a delimiter
-					delimiter = string(1,d[i]);			// Save it
+					delimiter = wstring(1,d[i]);			// Save it
 					nonDigitChars += 1;				// Count and continue
 				}
 				else {							// We already found a delimiter earlier
-					if (string(1, d[i]) != delimiter) {		// if they are not the same
+					if (wstring(1, d[i]) != delimiter) {		// if they are not the same
 						return df;						// Return false..?
 					}
 					else {							// They are the same
@@ -241,7 +246,7 @@ private:
 		}
 
 		// Now get date parts
-		Array<string> dateParts = StringUtility::SplitString(d, delimiter, "");
+		Array<wstring> dateParts = StringUtility::SplitString(d, delimiter, L"");
 		int datePart1 = (IsPositiveInt(dateParts[0])) ? stoi(dateParts[0]) : -1;
 		int datePart2 = (IsPositiveInt(dateParts[1])) ? stoi(dateParts[1]) : -1;
 		int datePart3 = (IsPositiveInt(dateParts[2])) ? stoi(dateParts[2]) : -1;
@@ -251,22 +256,22 @@ private:
 		}
 		// Get possible date formats
 		if (IsDate(datePart1, datePart2, datePart3)) { // YYYY MM DD
-			df.Add(YYYYMMDD);
+			df.Add(DateFormat::YYYYMMDD);
 		}
 		if (IsDate(datePart1, datePart3, datePart2)) { // YYYY DD MM
-			df.Add(YYYYDDMM);
+			df.Add(DateFormat::YYYYDDMM);
 		}
 		if (IsDate(datePart2, datePart1, datePart3)) { // MM YYYY DD
-			df.Add(MMYYYYDD);
+			df.Add(DateFormat::MMYYYYDD);
 		}
 		if (IsDate(datePart3, datePart1, datePart2)) { // MM DD YYYY
-			df.Add(MMDDYYYY);
+			df.Add(DateFormat::MMDDYYYY);
 		}
 		if (IsDate(datePart3, datePart2, datePart1)) { // DD MM YYYY
-			df.Add(DDMMYYYY);
+			df.Add(DateFormat::DDMMYYYY);
 		}
 		if (IsDate(datePart2, datePart3, datePart1)) { // DD YYYY MM
-			df.Add(DDYYYYMM);
+			df.Add(DateFormat::DDYYYYMM);
 		}
 		return df;
 	}
@@ -274,17 +279,17 @@ private:
 	/*******************************/
 	/*                             */
 	/*******************************/
-	void SplitDateParts(const string& s, int& y, int& m, int& d, DateFormat df) {
-		Array<string> dateParts = StringUtility::SplitString(s, delimiter, "");
+	void SplitDateParts(const wstring& s, int& y, int& m, int& d, DateFormat df) {
+		Array<wstring> dateParts = StringUtility::SplitString(s, delimiter, L"");
 
-		y = (df == YYYYDDMM || df == YYYYMMDD) ? stoi(dateParts[0]) :
-			((df == DDMMYYYY || df == MMDDYYYY) ? stoi(dateParts[2]) : stoi(dateParts[1]));
+		y = (df == DateFormat::YYYYDDMM || df == DateFormat::YYYYMMDD) ? stoi(dateParts[0]) :
+			((df == DateFormat::DDMMYYYY || df == DateFormat::MMDDYYYY) ? stoi(dateParts[2]) : stoi(dateParts[1]));
 
-		m = (df == MMDDYYYY || df == MMYYYYDD) ? stoi(dateParts[0]) :
-			((df == DDYYYYMM || df == YYYYDDMM) ? stoi(dateParts[2]) : stoi(dateParts[1]));
+		m = (df == DateFormat::MMDDYYYY || df == DateFormat::MMYYYYDD) ? stoi(dateParts[0]) :
+			((df == DateFormat::DDYYYYMM || df == DateFormat::YYYYDDMM) ? stoi(dateParts[2]) : stoi(dateParts[1]));
 
-		d = (df == DDMMYYYY || df == DDYYYYMM) ? stoi(dateParts[0]) :
-			((df == YYYYMMDD || df == MMYYYYDD) ? stoi(dateParts[2]) : stoi(dateParts[1]));
+		d = (df == DateFormat::DDMMYYYY || df == DateFormat::DDYYYYMM) ? stoi(dateParts[0]) :
+			((df == DateFormat::YYYYMMDD || df == DateFormat::MMYYYYDD) ? stoi(dateParts[2]) : stoi(dateParts[1]));
 	}
 
 
@@ -292,24 +297,24 @@ public:
 	/*******************************/
 	/*                             */
 	/*******************************/
-	void ProcessDate(string d) {
+	void ProcessDate(wstring d) {
 		// If already invalid, dont process
-		if (dateFormat == INVALID) { return; }
+		if (dateFormat == DateFormat::INVALID) { return; }
 		// If string does not meet minimum length, dont process.
 		if (d.size() < 6) {
-			dateFormat = INVALID;
+			dateFormat = DateFormat::INVALID;
 			return; 
 		}
 		// Check for time
-		string dateString = "";
-		string timeString = "";
-		int numSpaces = StringUtility::CountSubStringInString(d, " ", "");
+		wstring dateString = L"";
+		wstring timeString = L"";
+		size_t numSpaces = StringUtility::CountSubStringInString(d, L" ", L"");
 		if (numSpaces == 1 || numSpaces == 2) { // If there might be a time here
-			Array<string> dateParts = StringUtility::SplitString(d, " ", ""); // split
+			Array<wstring> dateParts = StringUtility::SplitString(d, L" ", L""); // split
 			dateString = dateParts[0]; // grab the date part
 			timeString = dateParts[1]; // grab the time part
 			if (numSpaces == 2) {
-				timeString += " " + dateParts[2];
+				timeString += L" " + dateParts[2];
 			}
 			hasTime = true;
 		}
@@ -319,7 +324,7 @@ public:
 		// If time identified and it is not valid, dont process
 		if (hasTime && !IsTime(timeString)) {
 			hasTime = false;
-			dateFormat = INVALID;
+			dateFormat = DateFormat::INVALID;
 			return;
 		}
 		// Grab all possible formats for the date
@@ -327,9 +332,9 @@ public:
 
 		if (df.GetSize() > 0) {
 			/* If date format already determined */
-			if (dateFormat != UNSURE) {
+			if (dateFormat != DateFormat::UNSURE) {
 				if (!df.exists(dateFormat)) { // if this format is not in the possible formats
-					dateFormat = INVALID; // done, dont process
+					dateFormat = DateFormat::INVALID; // done, dont process
 					return;
 				}
 				else {
@@ -340,7 +345,7 @@ public:
 				if (possibleDateFormats.GetSize() > 0) { // If there are multiple possible formats
 					for (unsigned int i = 0; i < df.GetSize(); i++) { // for each new format
 						if (!possibleDateFormats.exists(df[i])) { // if the new format is not found in the old formats
-							dateFormat = INVALID; // then this is not a possible date
+							dateFormat = DateFormat::INVALID; // then this is not a possible date
 							return;
 						}
 					}
@@ -358,7 +363,7 @@ public:
 			}
 		}
 		else {
-			dateFormat = INVALID;
+			dateFormat = DateFormat::INVALID;
 			return;
 		}
 	}
@@ -366,34 +371,34 @@ public:
 	/*******************************/
 	/*                             */
 	/*******************************/
-	bool IsNotDate() const { return (dateFormat == INVALID); }
+	bool IsNotDate() const { return (dateFormat == DateFormat::INVALID); }
 
 	/*******************************/
 	/*                             */
 	/*******************************/
 	bool IsDate() const { 
-		return (dateFormat != INVALID && dateFormat != UNSURE && !hasTime); 
+		return (dateFormat != DateFormat::INVALID && dateFormat != DateFormat::UNSURE && !hasTime);
 	}
 
 	/*******************************/
 	/*                             */
 	/*******************************/
 	bool IsDateTime() const {
-		return (dateFormat != INVALID && dateFormat != UNSURE && hasTime);
+		return (dateFormat != DateFormat::INVALID && dateFormat != DateFormat::UNSURE && hasTime);
 	}
 
 	/*******************************/
 	/*                             */
 	/*******************************/
 	bool IsPossibleDate() const {
-		return (dateFormat != INVALID && (!hasTime));
+		return (dateFormat != DateFormat::INVALID && (!hasTime));
 	}
 
 	/*******************************/
 	/*                             */
 	/*******************************/
 	bool IsPossibleDateTime() const {
-		return (dateFormat != INVALID && hasTime);
+		return (dateFormat != DateFormat::INVALID && hasTime);
 	}
 
 };
